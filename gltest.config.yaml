@@ -1,0 +1,12 @@
+networks:
+  default: studionet
+  studionet:
+    chain_type: studionet
+  localnet:
+    chain_type: localnet
+
+paths:
+  contracts: contracts
+  artifacts: artifacts
+
+environment: .env

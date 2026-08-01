@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme {
+  /* Licen brand palette, reused from Vitmus's "Verification Noir" */
+  --color-noir-900: #49225b; /* primary background */
+  --color-noir-700: #6e3482; /* primary actions */
+  --color-noir-400: #a56abd; /* evidence / credibility indicators */
+  --color-noir-200: #e7dbef; /* secondary surfaces */
+  --color-noir-100: #f5ebfa; /* content panels */
+
+  --color-status-success: #4ade80;
+  --color-status-warning: #facc15;
+  --color-status-danger: #f87171;
+  --color-status-pending: #93c5fd;
+
+  --font-display: var(--font-shantell), "Comic Sans MS", cursive;
+  --font-body: var(--font-comic), "Comic Sans MS", cursive;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  scrollbar-color: var(--color-noir-400) var(--color-noir-900);
+}
+
+body {
+  background-color: var(--color-noir-900);
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(165, 106, 189, 0.25), transparent),
+    linear-gradient(rgba(165, 106, 189, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(165, 106, 189, 0.05) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+  color: var(--color-noir-100);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+}
+
+.terminal-panel {
+  background: var(--color-noir-100);
+  color: var(--color-noir-900);
+  border: 1px solid var(--color-noir-400);
+  box-shadow:
+    0 0 0 1px rgba(73, 34, 91, 0.4),
+    0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+.scanline {
+  position: relative;
+  overflow: hidden;
+}
+.scanline::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 3px,
+    rgba(73, 34, 91, 0.03) 3px,
+    rgba(73, 34, 91, 0.03) 4px
+  );
+}
+
+::selection {
+  background: var(--color-noir-400);
+  color: var(--color-noir-900);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-noir-400);
+  outline-offset: 2px;
+}
