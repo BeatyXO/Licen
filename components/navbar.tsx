@@ -22,7 +22,7 @@ export function Navbar() {
             <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-noir-400">license-use gate</p>
           </div>
         </Link>
-        <nav className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <nav className="flex flex-col gap-3 lg:ml-auto lg:flex-1 lg:flex-row lg:items-center">
           <div className="flex flex-wrap items-center gap-2">
             {links.map((link) => (
               <Link
@@ -35,7 +35,9 @@ export function Navbar() {
               </Link>
             ))}
           </div>
-          <WalletButton />
+          <div className="lg:ml-auto">
+            <WalletButton />
+          </div>
         </nav>
       </div>
     </header>
