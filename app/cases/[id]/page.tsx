@@ -107,7 +107,7 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
       setTxHash(hash);
       setStage("pending");
       setTxStatus("PROPOSING");
-      await waitForLicenReceipt(client, hash);
+      await waitForLicenReceipt(client, hash, (s) => setTxStatus(s));
       setTxStatus("ACCEPTED");
       setLastActionDone(label);
       setStage("idle");

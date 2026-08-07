@@ -68,10 +68,15 @@ export function TxStatus({
         const done = index < currentIndex;
         const active = index === currentIndex;
         const Icon = done ? CheckCircle2 : active ? Loader2 : current === "CANCELED" ? XCircle : Circle;
+        const iconClass = done
+          ? "h-4 w-4 text-status-success"
+          : active
+            ? "h-4 w-4 animate-spin text-noir-400"
+            : "h-4 w-4 text-noir-200/30";
         return (
           <div key={stage} className="flex items-center gap-3 text-sm">
-            <Icon className={active ? "h-4 w-4 animate-spin text-noir-400" : "h-4 w-4 text-noir-400/60"} />
-            <span className={done || active ? "text-noir-100" : "text-noir-200/50"}>{stage}</span>
+            <Icon className={iconClass} />
+            <span className={done ? "text-status-success" : active ? "text-noir-100" : "text-noir-200/40"}>{stage}</span>
           </div>
         );
       })}

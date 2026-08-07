@@ -66,7 +66,11 @@ const TERMINAL_ERROR_STATUSES = new Set([
   TransactionStatus.LEADER_TIMEOUT,
 ]);
 
-export async function waitForLicenReceipt(client: Awaited<ReturnType<typeof createWriteClient>>, hash: string) {
+export async function waitForLicenReceipt(
+  client: Awaited<ReturnType<typeof createWriteClient>>,
+  hash: string,
+  onStatus?: (status: string) => void,
+) {
   // Poll manually so we can surface terminal error states immediately
   // rather than waiting for the full retry budget to exhaust.
   const maxRetries = 90;
@@ -79,7 +83,8 @@ export async function waitForLicenReceipt(client: Awaited<ReturnType<typeof crea
     } catch {
       continue; // transient network hiccup — keep polling
     }
-    const status = tx.statusName ?? tx.status;
+    const status = String(tx.statusName ?? tx.status ?? "PENDING");
+    onStatus?.(status);
     if (status === TransactionStatus.ACCEPTED || status === TransactionStatus.FINALIZED) {
       // Check for contract-level execution error even on ACCEPTED.
       if (tx.txExecutionResultName === "FINISHED_WITH_ERROR") {
