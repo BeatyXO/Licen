@@ -4,7 +4,7 @@ A public checker for whether a team's intended commercial use of a dataset, repo
 content source is actually permitted by its license.
 
 **Live:** https://licen-gamma.vercel.app
-**Contract (StudioNet):** [`0xe59e56FC087c17B8EdB24505c66BA1643d4E42B1`](https://explorer-studio.genlayer.com/address/0xe59e56FC087c17B8EdB24505c66BA1643d4E42B1)
+**Contract (StudioNet):** [`0x9eB22698077EcD111772536Da7B29f2187bB7e2e`](https://explorer-studio.genlayer.com/address/0x9eB22698077EcD111772536Da7B29f2187bB7e2e)
 **Studio import:** https://studio.genlayer.com
 
 ## What it does
