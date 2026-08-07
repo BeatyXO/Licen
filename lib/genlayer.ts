@@ -59,13 +59,40 @@ export async function writeLicen(
   return { hash, client };
 }
 
+const TERMINAL_ERROR_STATUSES = new Set([
+  TransactionStatus.CANCELED,
+  TransactionStatus.UNDETERMINED,
+  TransactionStatus.VALIDATORS_TIMEOUT,
+  TransactionStatus.LEADER_TIMEOUT,
+]);
+
 export async function waitForLicenReceipt(client: Awaited<ReturnType<typeof createWriteClient>>, hash: string) {
-  return client.waitForTransactionReceipt({
-    hash: hash as never,
-    status: TransactionStatus.ACCEPTED,
-    interval: 5000,
-    retries: 90,
-  });
+  // Poll manually so we can surface terminal error states immediately
+  // rather than waiting for the full retry budget to exhaust.
+  const maxRetries = 90;
+  const interval = 5000;
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise((r) => setTimeout(r, interval));
+    let tx;
+    try {
+      tx = await client.getTransaction({ hash: hash as never });
+    } catch {
+      continue; // transient network hiccup — keep polling
+    }
+    const status = tx.statusName ?? tx.status;
+    if (status === TransactionStatus.ACCEPTED || status === TransactionStatus.FINALIZED) {
+      // Check for contract-level execution error even on ACCEPTED.
+      if (tx.txExecutionResultName === "FINISHED_WITH_ERROR") {
+        const detail = tx.consensus_data?.leader_receipt?.[0]?.error ?? "contract execution error";
+        throw new Error(`Transaction was accepted but the contract reverted: ${detail}`);
+      }
+      return tx;
+    }
+    if (TERMINAL_ERROR_STATUSES.has(status as TransactionStatus)) {
+      throw new Error(`Transaction ended with status ${String(status)} — nothing was written. It is safe to retry.`);
+    }
+  }
+  throw new Error("Transaction is taking longer than expected. Check the explorer for its current status.");
 }
 
 export async function fetchAddressBalance(address: string): Promise<string> {

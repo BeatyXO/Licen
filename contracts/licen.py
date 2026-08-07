@@ -288,7 +288,18 @@ class Licen(gl.Contract):
                     "confidence": 0,
                     "reasoning": "LLM_ERROR: model call failed (" + str(exc)[:200] + ").",
                 }
-            return self._parse_json(result)
+            parsed = self._parse_json(result)
+            # Calldata cannot encode floats. The model sometimes returns confidence
+            # as a 0-1 float (e.g. 0.82) instead of a 0-100 integer. Normalise
+            # before returning so prompt_comparative can encode the dict safely.
+            raw_conf = parsed.get("confidence", 0)
+            if isinstance(raw_conf, float):
+                # Treat values <= 1.0 as a 0-1 probability; scale to 0-100.
+                conf_int = int(raw_conf * 100) if raw_conf <= 1.0 else int(raw_conf)
+            else:
+                conf_int = int(raw_conf) if raw_conf else 0
+            parsed["confidence"] = max(0, min(100, conf_int))
+            return parsed
 
         return gl.eq_principle.prompt_comparative(leader, LICENSE_EQ_PRINCIPLE)
 
