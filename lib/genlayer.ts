@@ -60,4 +60,14 @@ export async function waitForLicenReceipt(client: Awaited<ReturnType<typeof crea
   });
 }
 
+export async function fetchAddressBalance(address: string): Promise<string> {
+  const client = createReadClient();
+  // GenLayerClient extends viem PublicActions which exposes getBalance.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const wei: bigint = await (client as any).getBalance({ address: address as HexAddress });
+  // StudioNet balances are simulated; display as GEN (1 GEN = 1e18 wei).
+  const gen = Number(wei) / 1e18;
+  return gen.toLocaleString(undefined, { maximumFractionDigits: 4 }) + " GEN";
+}
+
 export { TransactionStatus };

@@ -15,9 +15,18 @@ export function formatGen(value: bigint | number | string) {
   return `${numeric.toLocaleString(undefined, { maximumFractionDigits: 4 })} GEN`;
 }
 
+function toUtcDate(iso: string): Date {
+  // Guard against naive datetimes (no Z/offset): JS parses those as local time.
+  const s = iso.trim();
+  if (s && !s.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(s)) {
+    return new Date(s + "Z");
+  }
+  return new Date(s);
+}
+
 export function formatRelativeTime(iso: string): string {
   if (!iso) return "";
-  const then = new Date(iso).getTime();
+  const then = toUtcDate(iso).getTime();
   if (Number.isNaN(then)) return "";
   const diffSeconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
   if (diffSeconds < 60) return "just now";
@@ -28,7 +37,7 @@ export function formatRelativeTime(iso: string): string {
 
 export function formatAbsoluteTime(iso: string): string {
   if (!iso) return "";
-  const date = new Date(iso);
+  const date = toUtcDate(iso);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString(undefined, {
     dateStyle: "medium",

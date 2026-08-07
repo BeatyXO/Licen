@@ -85,6 +85,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }
 
   function importPrivateKey(value: string) {
+    const existing = window.localStorage.getItem(STORAGE_KEY);
+    if (existing && existing !== value) {
+      const ok = window.confirm(
+        "You already have a browser wallet. Importing a new key will replace it — " +
+          "make sure you have exported the current key first. Continue?",
+      );
+      if (!ok) return;
+    }
     const account = createAccount(value as HexPrivateKey);
     window.localStorage.setItem(STORAGE_KEY, value);
     setPrivateKey(value);

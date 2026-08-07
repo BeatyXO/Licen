@@ -72,7 +72,7 @@ export default function NewCasePage() {
       // than decoding the write receipt's return value.
       try {
         const count = await readLicen("get_case_count", []);
-        setNewCaseId(String(count));
+        setNewCaseId(Number(count).toString());
       } catch {
         // Non-fatal: the case still exists and is visible on /cases.
       }

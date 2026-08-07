@@ -2,18 +2,58 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, ShieldAlert } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { TxStatus } from "@/components/tx-status";
 import { readLicen, createWriteClient, waitForLicenReceipt, type WriteIdentity } from "@/lib/genlayer";
 import { useWallet } from "@/lib/wallet";
-import { contractAddress, explorerUrl } from "@/lib/config";
+import { contractAddress, explorerUrl, CHALLENGE_WINDOW_SECONDS } from "@/lib/config";
 import { formatAbsoluteTime, formatGen, shortAddress } from "@/lib/utils";
 import type { LicenCase } from "@/lib/types";
 
 type Stage = "idle" | "signing" | "pending" | "error";
+
+function windowStatus(createdAt: string): { open: boolean; closesAt: Date } {
+  // Use the stored UTC timestamp; guard against naive strings.
+  const s = createdAt.trim();
+  const created = new Date(
+    s && !s.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(s) ? s + "Z" : s,
+  );
+  const closesAt = new Date(created.getTime() + CHALLENGE_WINDOW_SECONDS * 1000);
+  return { open: Date.now() < closesAt.getTime(), closesAt };
+}
+
+function ChallengeWindowBanner({ createdAt }: { createdAt: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const { open, closesAt } = windowStatus(createdAt);
+  const remaining = Math.max(0, Math.ceil((closesAt.getTime() - now) / 1000));
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+
+  if (!open) {
+    return (
+      <p className="rounded-md border border-noir-400/30 bg-noir-900/50 px-3 py-2 text-xs text-noir-400">
+        Challenge window closed {formatAbsoluteTime(closesAt.toISOString())}.
+      </p>
+    );
+  }
+  return (
+    <p className="rounded-md border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-xs text-noir-200">
+      Challenge window open — closes in{" "}
+      <span className="font-mono font-bold text-noir-100">
+        {mins}:{secs.toString().padStart(2, "0")}
+      </span>{" "}
+      ({formatAbsoluteTime(closesAt.toISOString())}).
+    </p>
+  );
+}
 
 export default function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -27,28 +67,31 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
   const [startedAt, setStartedAt] = useState(0);
   const [txHash, setTxHash] = useState<string>();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [lastActionDone, setLastActionDone] = useState<string | null>(null);
+
+  // Dynamic page title.
+  useEffect(() => {
+    if (item?.title) document.title = `${item.title} | Licen`;
+    return () => { document.title = "Licen — license-use verification, backed by bonds"; };
+  }, [item?.title]);
 
   const load = useCallback(async () => {
     setLoadError(null);
     try {
       const raw = (await readLicen("get_case", [id])) as string;
-      if (!raw) {
-        setNotFound(true);
-        return;
-      }
+      if (!raw) { setNotFound(true); return; }
       setItem(JSON.parse(raw));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Could not reach the Licen contract.");
     }
   }, [id]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  async function runWrite(functionName: string, args: unknown[], value = 0n) {
+  async function runWrite(label: string, functionName: string, args: unknown[], value = 0n) {
     if (!address) return;
     setActionError(null);
+    setLastActionDone(null);
     setStartedAt(Date.now());
     setStage("signing");
     try {
@@ -66,6 +109,7 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
       setTxStatus("PROPOSING");
       await waitForLicenReceipt(client, hash);
       setTxStatus("ACCEPTED");
+      setLastActionDone(label);
       setStage("idle");
       await load();
     } catch (err) {
@@ -104,6 +148,7 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
 
   const isSubmitter = address?.toLowerCase() === item.submitter.toLowerCase();
   const isBusy = stage === "signing" || stage === "pending";
+  const { open: windowOpen } = item.status === "open" ? windowStatus(item.created_at) : { open: false };
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
@@ -114,7 +159,9 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black">{item.title}</h1>
-          <p className="mt-1 text-xs text-noir-400">Case #{item.id} &middot; submitted {formatAbsoluteTime(item.created_at)}</p>
+          <p className="mt-1 text-xs text-noir-400">
+            Case #{item.id} &middot; submitted {formatAbsoluteTime(item.created_at)}
+          </p>
         </div>
         <StatusBadge status={item.status} />
       </div>
@@ -159,7 +206,7 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
       {item.verdict ? (
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Consensus verdict: {item.verdict.replace("_", " ")}</CardTitle>
+            <CardTitle>Consensus verdict: {item.verdict.replace(/_/g, " ")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p className="text-noir-900/60">Confidence: {item.confidence}%</p>
@@ -170,7 +217,26 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
       ) : null}
 
       <div className="mt-6 space-y-4">
-        {isBusy || stage === "error" ? <TxStatus current={txStatus} startedAt={startedAt} txHash={txHash} onRetry={() => setStage("idle")} /> : null}
+        {/* Challenge window banner — only shown on open cases */}
+        {item.status === "open" ? <ChallengeWindowBanner createdAt={item.created_at} /> : null}
+
+        {/* Success confirmation — persists until the user takes another action */}
+        {lastActionDone && stage === "idle" ? (
+          <div className="flex items-center gap-2 rounded-md border border-status-success/50 bg-status-success/10 px-3 py-2 text-sm text-noir-100">
+            <CheckCircle2 className="h-4 w-4 text-status-success shrink-0" />
+            <span>
+              {lastActionDone} accepted.{" "}
+              <span className="text-noir-400 text-xs">
+                Result may take a moment to reflect — the page data has been refreshed.
+              </span>
+            </span>
+          </div>
+        ) : null}
+
+        {isBusy || stage === "error" ? (
+          <TxStatus current={txStatus} startedAt={startedAt} txHash={txHash} onRetry={() => setStage("idle")} />
+        ) : null}
+
         {actionError ? <p className="text-sm text-status-danger">{actionError}</p> : null}
 
         {!address ? (
@@ -180,18 +246,46 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
         ) : null}
 
         <div className="flex flex-wrap gap-3">
+          {/* Challenge — only for non-submitters while window is open */}
           {item.status === "open" && address && !isSubmitter ? (
-            <Button disabled={isBusy} onClick={() => runWrite("challenge_case", [item.id], BigInt(item.submitter_bond || "1"))}>
-              Challenge (bond {formatGen(item.submitter_bond)})
-            </Button>
+            windowOpen ? (
+              <Button
+                disabled={isBusy}
+                onClick={() => runWrite("Challenge submitted", "challenge_case", [item.id], BigInt(item.submitter_bond || "1"))}
+              >
+                Challenge (bond {formatGen(item.submitter_bond)})
+              </Button>
+            ) : (
+              <Button disabled title="The 30-minute challenge window has closed.">
+                Challenge window closed
+              </Button>
+            )
           ) : null}
+
+          {/* Withdraw — only for submitter after window has closed */}
           {item.status === "open" && address && isSubmitter ? (
-            <Button variant="outline" disabled={isBusy} onClick={() => runWrite("withdraw_unchallenged", [item.id])}>
-              Withdraw bond (after challenge window)
-            </Button>
+            windowOpen ? (
+              <Button
+                variant="outline"
+                disabled
+                title="You can withdraw your bond once the 30-minute challenge window has passed."
+              >
+                Withdraw bond (window still open)
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                disabled={isBusy}
+                onClick={() => runWrite("Bond withdrawn", "withdraw_unchallenged", [item.id])}
+              >
+                Withdraw bond
+              </Button>
+            )
           ) : null}
+
+          {/* Resolve — any wallet can trigger on a challenged case */}
           {item.status === "challenged" && address ? (
-            <Button disabled={isBusy} onClick={() => runWrite("resolve_case", [item.id])}>
+            <Button disabled={isBusy} onClick={() => runWrite("Resolution triggered", "resolve_case", [item.id])}>
               Trigger resolution
             </Button>
           ) : null}
