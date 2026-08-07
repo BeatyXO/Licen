@@ -26,22 +26,14 @@ export async function createWriteClient(identity: WriteIdentity) {
     return createClient({ chain, account: createAccount(identity.privateKey as HexAddress) });
   }
   const client = createClient({ chain, account: identity.address as HexAddress });
+  // connect() installs the GenLayer Snap for MetaMask Flask wallets.
+  // Other EIP-1193 wallets (Rabby, standard MetaMask) handle network/signing
+  // at the transaction level — if connect() throws, swallow it and let
+  // writeContract proceed; the wallet will prompt natively.
   try {
     await client.connect(chainName as never);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    // Some wallets error when already on the correct network — treat that as success.
-    const alreadyCorrect =
-      /already/i.test(msg) ||
-      /same chain/i.test(msg) ||
-      /no.*switch/i.test(msg);
-    if (!alreadyCorrect) {
-      throw new Error(
-        `Could not connect your wallet to GenLayer StudioNet. ` +
-          `Make sure your wallet is set to the GenLayer StudioNet network and try again, ` +
-          `or use the Browser Wallet option instead. (Detail: ${msg})`,
-      );
-    }
+  } catch {
+    // Non-fatal: wallet will handle signing on writeContract.
   }
   return client;
 }
