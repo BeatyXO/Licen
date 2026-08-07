@@ -239,6 +239,11 @@ found" below.
   backing the GEN bonds in this environment; the payout logic (`emit_transfer`) is
   exercised and the case state transitions correctly on every branch, but real
   economic settlement is not something this environment can prove.
+- **Bond payouts use `gl.get_contract_at(address).emit_transfer(...)` on EOA addresses.**
+  This works correctly on StudioNet's simulated balance layer. On a real chain with live
+  GEN, paying an EOA requires `@gl.evm.contract_interface` rather than `gl.get_contract_at`.
+  A production redeployment would need that change in `withdraw_unchallenged` and
+  `resolve_case` before real value could move.
 - **No `UNDETERMINED` outer-transaction result was observed** in testing after the
   fetch-failure fix (validators reached quorum on every resolved case run), but the
   frontend's `TxStatus` component explicitly handles `UNDETERMINED` /
