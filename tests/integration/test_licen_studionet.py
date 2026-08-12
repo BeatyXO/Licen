@@ -13,7 +13,7 @@ def accounts():
 @pytest.fixture(scope="module")
 def licen_contract(accounts):
     factory = get_contract_factory("Licen")
-    return factory.deploy(args=[], account=accounts[0])
+    return factory.deploy(args=[], account=accounts[0], wait_interval=8000, wait_retries=90)
 
 
 def test_submit_and_read_case(licen_contract):
@@ -25,7 +25,7 @@ def test_submit_and_read_case(licen_contract):
             "Apache-2.0",
             "Fine-tune a commercial summarization model and sell API access to it.",
         ]
-    ).transact(value=1)
+    ).transact(value=1, wait_interval=8000, wait_retries=90)
     assert receipt["status"] in (5, "ACCEPTED")
 
     count = licen_contract.get_case_count(args=[]).call()
@@ -47,7 +47,7 @@ def test_challenge_and_resolve_reaches_consensus(licen_contract, accounts):
             "GPL-2.0-only",
             "Train a closed-source commercial chatbot and sell subscriptions without releasing source.",
         ]
-    ).transact(value=1)
+    ).transact(value=1, wait_interval=8000, wait_retries=90)
     assert receipt["status"] in (5, "ACCEPTED")
 
     case_id = str(int(licen_contract.get_case_count(args=[]).call()))
@@ -58,14 +58,14 @@ def test_challenge_and_resolve_reaches_consensus(licen_contract, accounts):
             "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
             "The project license is GPL-2.0-only, which requires source availability when distributing modified copies.",
         ]
-    ).transact(value=1)
+    ).transact(value=1, wait_interval=8000, wait_retries=90)
     assert challenge_receipt["status"] in (5, "ACCEPTED")
 
     case = json.loads(licen_contract.get_case(args=[case_id]).call())
     assert case["status"] == "challenged"
 
     resolve_receipt = licen_contract.resolve_case(args=[case_id]).transact(
-        wait_interval=5000, wait_retries=90
+        wait_interval=8000, wait_retries=90
     )
     assert resolve_receipt["status"] in (5, "ACCEPTED")
 
