@@ -29,11 +29,12 @@ def submit(direct_vm, licen, sender, value=1000, **overrides):
         title="Corpus X commercial use",
         source_url="https://example.com/dataset",
         license_url="https://example.com/license",
+        license_version="Apache-2.0",
         intended_use="Fine-tune a commercial model and sell API access to the output.",
     )
     args.update(overrides)
     return licen.submit_case(
-        args["title"], args["source_url"], args["license_url"], args["intended_use"]
+        args["title"], args["source_url"], args["license_url"], args["license_version"], args["intended_use"]
     )
 
 
@@ -41,7 +42,9 @@ ALLOWED_LICENSE_HTML = "This dataset is released under a permissive commercial-u
 
 
 def mock_evaluation(direct_vm, verdict="allowed", confidence=80, reasoning="clause 2 permits commercial fine-tuning"):
+    direct_vm.mock_web(r"example\.com/dataset", {"status": 200, "body": "Corpus X is licensed under Apache-2.0. See the versioned license document."})
     direct_vm.mock_web(r"example\.com/license", {"status": 200, "body": ALLOWED_LICENSE_HTML})
+    direct_vm.mock_web(r"example\.com/counter-evidence", {"status": 200, "body": "Counter-evidence reviewed by validators."})
     payload = json.dumps({"verdict": verdict, "confidence": confidence, "reasoning": reasoning})
     direct_vm.mock_llm(r".*", payload)
 
@@ -63,7 +66,7 @@ def test_submit_case_requires_positive_bond(direct_vm, licen, direct_alice):
     direct_vm.sender = direct_alice
     direct_vm.value = 0
     with direct_vm.expect_revert("EXPECTED_BOND_REQUIRED"):
-        licen.submit_case("Title here", "https://a.com/x", "https://a.com/license", "commercial use of the data")
+        licen.submit_case("Title here", "https://a.com/x", "https://a.com/license", "Apache-2.0", "commercial use of the data")
 
 
 def test_submit_case_rejects_short_title(direct_vm, licen, direct_alice):
@@ -81,6 +84,11 @@ def test_submit_case_rejects_non_public_license_url(direct_vm, licen, direct_ali
         submit(direct_vm, licen, direct_alice, license_url="not-a-url")
 
 
+def test_submit_case_rejects_short_license_version(direct_vm, licen, direct_alice):
+    with direct_vm.expect_revert("EXPECTED_BAD_LICENSE_VERSION"):
+        submit(direct_vm, licen, direct_alice, license_version="x")
+
+
 def test_submit_case_rejects_short_intended_use(direct_vm, licen, direct_alice):
     with direct_vm.expect_revert("EXPECTED_BAD_INTENDED_USE"):
         submit(direct_vm, licen, direct_alice, intended_use="short")
@@ -94,7 +102,7 @@ def test_submit_case_increments_counter(direct_vm, licen, direct_alice):
 
 
 # ---------------------------------------------------------------------------
-# challenge_case — including window boundary
+# challenge_case â€” including window boundary
 # ---------------------------------------------------------------------------
 
 
@@ -103,7 +111,7 @@ def test_challenge_case_within_window_succeeds(direct_vm, licen, direct_alice, d
     warp(_after(100))
     direct_vm.sender = direct_bob
     direct_vm.value = 1000
-    licen.challenge_case(case_id)
+    licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
     case = json.loads(licen.get_case(case_id))
     assert case["status"] == "challenged"
     assert case["challenger"] != ""
@@ -115,7 +123,7 @@ def test_challenge_case_exactly_at_window_boundary_fails(direct_vm, licen, direc
     direct_vm.sender = direct_bob
     direct_vm.value = 1000
     with direct_vm.expect_revert("EXPECTED_CHALLENGE_WINDOW_CLOSED"):
-        licen.challenge_case(case_id)
+        licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
 
 
 def test_challenge_case_one_second_before_boundary_succeeds(direct_vm, licen, direct_alice, direct_bob, warp):
@@ -123,7 +131,7 @@ def test_challenge_case_one_second_before_boundary_succeeds(direct_vm, licen, di
     warp(_after(1799))
     direct_vm.sender = direct_bob
     direct_vm.value = 1000
-    licen.challenge_case(case_id)
+    licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
     case = json.loads(licen.get_case(case_id))
     assert case["status"] == "challenged"
 
@@ -134,7 +142,7 @@ def test_challenge_case_after_window_fails(direct_vm, licen, direct_alice, direc
     direct_vm.sender = direct_bob
     direct_vm.value = 1000
     with direct_vm.expect_revert("EXPECTED_CHALLENGE_WINDOW_CLOSED"):
-        licen.challenge_case(case_id)
+        licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
 
 
 def test_challenge_case_rejects_submitter_self_challenge(direct_vm, licen, direct_alice, warp):
@@ -143,7 +151,7 @@ def test_challenge_case_rejects_submitter_self_challenge(direct_vm, licen, direc
     direct_vm.sender = direct_alice
     direct_vm.value = 1000
     with direct_vm.expect_revert("EXPECTED_SUBMITTER_CANNOT_CHALLENGE"):
-        licen.challenge_case(case_id)
+        licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
 
 
 def test_challenge_case_rejects_bond_below_submitter_bond(direct_vm, licen, direct_alice, direct_bob, warp):
@@ -152,7 +160,7 @@ def test_challenge_case_rejects_bond_below_submitter_bond(direct_vm, licen, dire
     direct_vm.sender = direct_bob
     direct_vm.value = 100
     with direct_vm.expect_revert("EXPECTED_BOND_MUST_MATCH"):
-        licen.challenge_case(case_id)
+        licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
 
 
 def test_challenge_case_rejects_already_challenged(direct_vm, licen, direct_alice, direct_bob, direct_charlie, warp):
@@ -160,22 +168,22 @@ def test_challenge_case_rejects_already_challenged(direct_vm, licen, direct_alic
     warp(_after(10))
     direct_vm.sender = direct_bob
     direct_vm.value = 1000
-    licen.challenge_case(case_id)
+    licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
     direct_vm.sender = direct_charlie
     direct_vm.value = 1000
     with direct_vm.expect_revert("EXPECTED_NOT_CHALLENGEABLE"):
-        licen.challenge_case(case_id)
+        licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
 
 
 def test_challenge_case_missing_case_reverts(direct_vm, licen, direct_bob):
     direct_vm.sender = direct_bob
     direct_vm.value = 1000
     with direct_vm.expect_revert("EXPECTED_CASE_NOT_FOUND"):
-        licen.challenge_case("999")
+        licen.challenge_case("999", "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
 
 
 # ---------------------------------------------------------------------------
-# withdraw_unchallenged — boundary tested both sides
+# withdraw_unchallenged â€” boundary tested both sides
 # ---------------------------------------------------------------------------
 
 
@@ -208,14 +216,14 @@ def test_withdraw_unchallenged_rejects_already_challenged(direct_vm, licen, dire
     warp(_after(10))
     direct_vm.sender = direct_bob
     direct_vm.value = 1000
-    licen.challenge_case(case_id)
+    licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
     warp(_after(5000))
     with direct_vm.expect_revert("EXPECTED_NOT_WITHDRAWABLE"):
         licen.withdraw_unchallenged(case_id)
 
 
 # ---------------------------------------------------------------------------
-# resolve_case — the nondet branch, and every verdict outcome
+# resolve_case â€” the nondet branch, and every verdict outcome
 # ---------------------------------------------------------------------------
 
 
@@ -224,7 +232,7 @@ def _challenged_case(direct_vm, licen, direct_alice, direct_bob, warp, value=100
     warp(_after(10))
     direct_vm.sender = direct_bob
     direct_vm.value = value
-    licen.challenge_case(case_id)
+    licen.challenge_case(case_id, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
     return case_id
 
 
@@ -288,7 +296,9 @@ def test_resolve_case_treats_unknown_verdict_as_undetermined(direct_vm, licen, d
 
 def test_resolve_case_fenced_json_is_parsed(direct_vm, licen, direct_alice, direct_bob, warp):
     case_id = _challenged_case(direct_vm, licen, direct_alice, direct_bob, warp)
+    direct_vm.mock_web(r"example\.com/dataset", {"status": 200, "body": "Corpus X is licensed under Apache-2.0."})
     direct_vm.mock_web(r"example\.com/license", {"status": 200, "body": ALLOWED_LICENSE_HTML})
+    direct_vm.mock_web(r"example\.com/counter-evidence", {"status": 200, "body": "Counter-evidence."})
     fenced = "```json\n" + json.dumps({"verdict": "allowed", "confidence": 90, "reasoning": "ok"}) + "\n```"
     direct_vm.mock_llm(r".*", fenced)
     licen.resolve_case(case_id)
@@ -298,7 +308,9 @@ def test_resolve_case_fenced_json_is_parsed(direct_vm, licen, direct_alice, dire
 
 def test_resolve_case_malformed_json_falls_back_to_undetermined(direct_vm, licen, direct_alice, direct_bob, warp):
     case_id = _challenged_case(direct_vm, licen, direct_alice, direct_bob, warp)
+    direct_vm.mock_web(r"example\.com/dataset", {"status": 200, "body": "Corpus X is licensed under Apache-2.0."})
     direct_vm.mock_web(r"example\.com/license", {"status": 200, "body": ALLOWED_LICENSE_HTML})
+    direct_vm.mock_web(r"example\.com/counter-evidence", {"status": 200, "body": "Counter-evidence."})
     direct_vm.mock_llm(r".*", "not json at all, sorry")
     licen.resolve_case(case_id)
     case = json.loads(licen.get_case(case_id))
@@ -308,7 +320,9 @@ def test_resolve_case_malformed_json_falls_back_to_undetermined(direct_vm, licen
 
 def test_resolve_case_non_object_json_falls_back_to_undetermined(direct_vm, licen, direct_alice, direct_bob, warp):
     case_id = _challenged_case(direct_vm, licen, direct_alice, direct_bob, warp)
+    direct_vm.mock_web(r"example\.com/dataset", {"status": 200, "body": "Corpus X is licensed under Apache-2.0."})
     direct_vm.mock_web(r"example\.com/license", {"status": 200, "body": ALLOWED_LICENSE_HTML})
+    direct_vm.mock_web(r"example\.com/counter-evidence", {"status": 200, "body": "Counter-evidence."})
     direct_vm.mock_llm(r".*", json.dumps(["allowed"]))
     licen.resolve_case(case_id)
     case = json.loads(licen.get_case(case_id))
@@ -342,7 +356,7 @@ def test_resolve_case_cannot_be_replayed_after_resolution(direct_vm, licen, dire
 def test_resolve_case_retries_after_undetermined(direct_vm, licen, direct_alice, direct_bob, warp):
     """An undetermined verdict on a challenged case is terminal in this design
     (bonds are already refunded), but a fresh challenge round on a new case
-    with matching evidence must still be resolvable — confirms no cross-case
+    with matching evidence must still be resolvable â€” confirms no cross-case
     state leaks between resolutions."""
     case_id = _challenged_case(direct_vm, licen, direct_alice, direct_bob, warp)
     mock_evaluation(direct_vm, verdict="undetermined")
@@ -353,7 +367,7 @@ def test_resolve_case_retries_after_undetermined(direct_vm, licen, direct_alice,
     warp(_after(20))
     direct_vm.sender = direct_bob
     direct_vm.value = 1000
-    licen.challenge_case(case_id_2)
+    licen.challenge_case(case_id_2, "https://example.com/counter-evidence", "The source metadata names a conflicting license.")
     mock_evaluation(direct_vm, verdict="allowed")
     licen.resolve_case(case_id_2)
     case2 = json.loads(licen.get_case(case_id_2))

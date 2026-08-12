@@ -20,8 +20,9 @@ def test_submit_and_read_case(licen_contract):
     receipt = licen_contract.submit_case(
         args=[
             "Public dataset for a commercial summarizer",
-            "https://huggingface.co/datasets/squad",
-            "https://huggingface.co/datasets/squad/blob/main/README.md",
+            "https://raw.githubusercontent.com/huggingface/datasets/main/README.md",
+            "https://raw.githubusercontent.com/huggingface/datasets/main/LICENSE",
+            "Apache-2.0",
             "Fine-tune a commercial summarization model and sell API access to it.",
         ]
     ).transact(value=1)
@@ -41,8 +42,9 @@ def test_challenge_and_resolve_reaches_consensus(licen_contract, accounts):
     receipt = licen_contract.submit_case(
         args=[
             "Scraped news corpus for a commercial chatbot",
-            "https://example.com/news-corpus",
+            "https://raw.githubusercontent.com/git/git/master/README.md",
             "https://raw.githubusercontent.com/git/git/master/COPYING",
+            "GPL-2.0-only",
             "Train a closed-source commercial chatbot and sell subscriptions without releasing source.",
         ]
     ).transact(value=1)
@@ -50,7 +52,13 @@ def test_challenge_and_resolve_reaches_consensus(licen_contract, accounts):
 
     case_id = str(int(licen_contract.get_case_count(args=[]).call()))
 
-    challenge_receipt = challenger.challenge_case(args=[case_id]).transact(value=1)
+    challenge_receipt = challenger.challenge_case(
+        args=[
+            case_id,
+            "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
+            "The project license is GPL-2.0-only, which requires source availability when distributing modified copies.",
+        ]
+    ).transact(value=1)
     assert challenge_receipt["status"] in (5, "ACCEPTED")
 
     case = json.loads(licen_contract.get_case(args=[case_id]).call())

@@ -4,7 +4,7 @@ A public checker for whether a team's intended commercial use of a dataset, repo
 content source is actually permitted by its license.
 
 **Live:** https://licen-three.vercel.app
-**Contract (StudioNet):** [`0x9eB22698077EcD111772536Da7B29f2187bB7e2e`](https://explorer-studio.genlayer.com/address/0x9eB22698077EcD111772536Da7B29f2187bB7e2e)
+**Contract (StudioNet):** [`0x6E0F1463EBe082a3c27a0f66D0dEB1bcc675a00E`](https://explorer-studio.genlayer.com/address/0x6E0F1463EBe082a3c27a0f66D0dEB1bcc675a00E)
 **Studio import:** https://studio.genlayer.com
 
 ## What it does

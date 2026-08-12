@@ -13,11 +13,14 @@ export type LicenCase = {
   title: string;
   source_url: string;
   license_url: string;
+  license_version: string;
   intended_use: string;
   submitter: string;
   submitter_bond: string;
   challenger: string;
   challenger_bond: string;
+  counter_evidence_url: string;
+  counter_evidence_note: string;
   status: CaseStatus;
   created_at: string;
   challenged_at: string;

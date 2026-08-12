@@ -20,6 +20,7 @@ export default function NewCasePage() {
   const [title, setTitle] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [licenseUrl, setLicenseUrl] = useState("");
+  const [licenseVersion, setLicenseVersion] = useState("");
   const [intendedUse, setIntendedUse] = useState("");
   const [bond, setBond] = useState("1");
   const [stage, setStage] = useState<Stage>("idle");
@@ -36,11 +37,13 @@ export default function NewCasePage() {
         ? "Source URL must start with http:// or https://"
         : !/^https?:\/\//.test(licenseUrl)
           ? "License URL must start with http:// or https://"
-          : intendedUse.trim().length < 12
-            ? "Describe the intended use in at least 12 characters."
-            : Number(bond) <= 0
-              ? "Bond must be greater than 0."
-              : null;
+          : licenseVersion.trim().length < 3
+            ? "Enter the exact license identifier and version."
+            : intendedUse.trim().length < 12
+              ? "Describe the intended use in at least 12 characters."
+              : Number(bond) <= 0
+                ? "Bond must be greater than 0."
+                : null;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,7 +58,7 @@ export default function NewCasePage() {
       const hash = await client.writeContract({
         address: contractAddress as `0x${string}`,
         functionName: "submit_case",
-        args: [title.trim(), sourceUrl.trim(), licenseUrl.trim(), intendedUse.trim()],
+        args: [title.trim(), sourceUrl.trim(), licenseUrl.trim(), licenseVersion.trim(), intendedUse.trim()],
         value: BigInt(Math.floor(Number(bond))),
       });
       setTxHash(hash);
@@ -94,8 +97,8 @@ export default function NewCasePage() {
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
       <h1 className="text-3xl font-black">Submit a case</h1>
       <p className="mt-1 text-sm text-noir-200">
-        Name the source you want to use commercially, its license, and exactly what you intend to do with it. Your
-        bond is at risk if a challenger disputes it and validators decide the use is not allowed.
+        Give validators source metadata that identifies its license, the exact versioned license document, and the
+        commercial use you intend. Your bond is at risk if a challenger disproves that evidence or the use is not allowed.
       </p>
 
       {stage === "done" ? (
@@ -122,12 +125,17 @@ export default function NewCasePage() {
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Public dataset for a commercial summarizer" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="source">Source URL</Label>
-            <Input id="source" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://huggingface.co/datasets/..." />
+            <Label htmlFor="source">Source metadata URL</Label>
+            <Input id="source" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://github.com/owner/project/blob/v1.2.0/README.md" />
+            <p className="text-xs text-noir-400">It must name the source and state or link to the applicable license.</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="license">License URL</Label>
-            <Input id="license" value={licenseUrl} onChange={(e) => setLicenseUrl(e.target.value)} placeholder="https://.../LICENSE" />
+            <Label htmlFor="license">Versioned license document URL</Label>
+            <Input id="license" value={licenseUrl} onChange={(e) => setLicenseUrl(e.target.value)} placeholder="https://raw.githubusercontent.com/owner/project/v1.2.0/LICENSE" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="license-version">License identifier and version</Label>
+            <Input id="license-version" value={licenseVersion} onChange={(e) => setLicenseVersion(e.target.value)} placeholder="Apache-2.0" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="use">Intended use</Label>

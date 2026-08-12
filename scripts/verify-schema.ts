@@ -7,8 +7,8 @@ import { createClient, createAccount } from "genlayer-js";
 import { chain, contractAddress, contractFunctions } from "../lib/config";
 
 const EXPECTED_ARITY: Record<string, number> = {
-  submit_case: 4,
-  challenge_case: 1,
+  submit_case: 5,
+  challenge_case: 3,
   withdraw_unchallenged: 1,
   resolve_case: 1,
   get_case: 1,

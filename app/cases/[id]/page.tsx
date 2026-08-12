@@ -68,6 +68,8 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
   const [txHash, setTxHash] = useState<string>();
   const [actionError, setActionError] = useState<string | null>(null);
   const [lastActionDone, setLastActionDone] = useState<string | null>(null);
+  const [counterEvidenceUrl, setCounterEvidenceUrl] = useState("");
+  const [counterEvidenceNote, setCounterEvidenceNote] = useState("");
 
   // Dynamic page title.
   useEffect(() => {
@@ -169,16 +171,17 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
       <Card className="mt-6">
         <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
           <div>
-            <p className="text-xs font-bold text-noir-900/60">Source</p>
+            <p className="text-xs font-bold text-noir-900/60">Source metadata</p>
             <a href={item.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-noir-700 underline">
               {item.source_url} <ExternalLink className="h-3 w-3" />
             </a>
           </div>
           <div>
-            <p className="text-xs font-bold text-noir-900/60">License</p>
+            <p className="text-xs font-bold text-noir-900/60">Versioned license</p>
             <a href={item.license_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-noir-700 underline">
               {item.license_url} <ExternalLink className="h-3 w-3" />
             </a>
+            <p className="mt-1 text-xs text-noir-900/60">Declared: {item.license_version}</p>
           </div>
           <div className="sm:col-span-2">
             <p className="text-xs font-bold text-noir-900/60">Intended use</p>
@@ -189,6 +192,15 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
             <p className="font-mono text-sm text-noir-900/90">{shortAddress(item.submitter)}</p>
             <p className="text-xs text-noir-900/60">Bond: {formatGen(item.submitter_bond)}</p>
           </div>
+          {item.counter_evidence_url ? (
+            <div className="sm:col-span-2">
+              <p className="text-xs font-bold text-noir-900/60">Challenger counter-evidence</p>
+              <a href={item.counter_evidence_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-noir-700 underline">
+                {item.counter_evidence_url} <ExternalLink className="h-3 w-3" />
+              </a>
+              <p className="mt-1 text-sm text-noir-900/90">{item.counter_evidence_note}</p>
+            </div>
+          ) : null}
           <div>
             <p className="text-xs font-bold text-noir-900/60">Challenger</p>
             {item.challenger ? (
@@ -245,16 +257,27 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
           </p>
         ) : null}
 
-        <div className="flex flex-wrap gap-3">
+        <div className="space-y-3">
           {/* Challenge — only for non-submitters while window is open */}
           {item.status === "open" && address && !isSubmitter ? (
             windowOpen ? (
-              <Button
-                disabled={isBusy}
-                onClick={() => runWrite("Challenge submitted", "challenge_case", [item.id], BigInt(item.submitter_bond || "1"))}
-              >
-                Challenge (bond {formatGen(item.submitter_bond)})
-              </Button>
+              <div className="max-w-xl space-y-3 rounded-md border border-noir-400/20 p-4">
+                <p className="text-sm font-bold text-noir-100">Submit counter-evidence</p>
+                <div className="space-y-2">
+                  <label htmlFor="counter-evidence-url" className="text-xs font-bold text-noir-300">Counter-evidence URL</label>
+                  <input id="counter-evidence-url" type="url" value={counterEvidenceUrl} onChange={(event) => setCounterEvidenceUrl(event.target.value)} placeholder="https://..." className="flex h-10 w-full rounded-md border border-noir-400/35 bg-noir-900/60 px-3 text-sm text-noir-100 outline-none focus:border-noir-400" />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="counter-evidence-note" className="text-xs font-bold text-noir-300">Why this contradicts the claim</label>
+                  <textarea id="counter-evidence-note" value={counterEvidenceNote} onChange={(event) => setCounterEvidenceNote(event.target.value)} placeholder="Explain the source/license mismatch or the license condition that makes this use unavailable." className="min-h-24 w-full rounded-md border border-noir-400/35 bg-noir-900/60 px-3 py-2 text-sm text-noir-100 outline-none focus:border-noir-400" />
+                </div>
+                <Button
+                  disabled={isBusy || !/^https?:\/\//.test(counterEvidenceUrl) || counterEvidenceNote.trim().length < 12}
+                  onClick={() => runWrite("Challenge submitted", "challenge_case", [item.id, counterEvidenceUrl.trim(), counterEvidenceNote.trim()], BigInt(item.submitter_bond || "1"))}
+                >
+                  Challenge (bond {formatGen(item.submitter_bond)})
+                </Button>
+              </div>
             ) : (
               <Button disabled title="The 30-minute challenge window has closed.">
                 Challenge window closed
