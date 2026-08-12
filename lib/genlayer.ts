@@ -66,6 +66,24 @@ const TERMINAL_ERROR_STATUSES = new Set([
   TransactionStatus.LEADER_TIMEOUT,
 ]);
 
+const RECEIPT_POLL_INITIAL_MS = 15_000;
+const RECEIPT_POLL_MAX_MS = 45_000;
+const RATE_LIMIT_COOLDOWN_MS = 60_000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimited(error: unknown) {
+  return /rate limit exceeded|code=-32029/i.test(error instanceof Error ? error.message : String(error));
+}
+
+function retryAfterMs(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(/retry_after_seconds["':\s]+(\d+)/i);
+  return match ? Number(match[1]) * 1000 : RATE_LIMIT_COOLDOWN_MS;
+}
+
 export async function waitForLicenReceipt(
   client: Awaited<ReturnType<typeof createWriteClient>>,
   hash: string,
@@ -73,14 +91,20 @@ export async function waitForLicenReceipt(
 ) {
   // Poll manually so we can surface terminal error states immediately
   // rather than waiting for the full retry budget to exhaust.
-  const maxRetries = 90;
-  const interval = 5000;
+  const maxRetries = 40;
+  let interval = RECEIPT_POLL_INITIAL_MS;
   for (let i = 0; i < maxRetries; i++) {
-    await new Promise((r) => setTimeout(r, interval));
+    await sleep(interval);
     let tx;
     try {
       tx = await client.getTransaction({ hash: hash as never });
-    } catch {
+    } catch (error) {
+      if (isRateLimited(error)) {
+        onStatus?.("RATE_LIMITED");
+        interval = Math.max(interval, retryAfterMs(error));
+      } else {
+        interval = Math.min(interval * 2, RECEIPT_POLL_MAX_MS);
+      }
       continue; // transient network hiccup — keep polling
     }
     const status = String(tx.statusName ?? tx.status ?? "PENDING");
@@ -97,7 +121,7 @@ export async function waitForLicenReceipt(
       throw new Error(`Transaction ended with status ${String(status)} — nothing was written. It is safe to retry.`);
     }
   }
-  throw new Error("Transaction is taking longer than expected. Check the explorer for its current status.");
+  throw new Error("Transaction is still pending. Check the explorer for its current status; it will continue on StudioNet.");
 }
 
 export async function fetchAddressBalance(address: string): Promise<string> {

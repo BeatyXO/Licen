@@ -49,6 +49,17 @@ export function TxStatus({
     );
   }
 
+  if (current === "RATE_LIMITED") {
+    return (
+      <div className="rounded-lg border border-status-warning/50 bg-status-warning/15 p-4 text-sm text-noir-100" role="status">
+        <div className="mb-2 flex items-center gap-2 font-bold">
+          <Loader2 className="h-4 w-4 animate-spin" /> StudioNet is busy.
+        </div>
+        <p className="text-noir-200">Your transaction is still pending. Licen has paused receipt checks briefly to stay within StudioNet&apos;s request limit.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 rounded-lg border border-noir-400/15 bg-noir-900/80 p-4" aria-live="polite">
       <div className="flex items-center justify-between text-xs text-noir-200">

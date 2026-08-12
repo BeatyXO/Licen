@@ -152,6 +152,15 @@ OK: get_challenge_window_seconds (0 params)
 Schema verification passed: every frontend call matches the deployed contract.
 ```
 
+## StudioNet request budget
+
+StudioNet limits RPC traffic to 30 requests per minute. Licen therefore polls a
+pending transaction after 15 seconds, then progressively backs off to 45 seconds.
+If StudioNet returns a rate-limit response, the app pauses receipt checks for the
+server-provided cooldown (or 60 seconds when none is supplied). A rate limit never
+retries or changes a user write; the transaction remains pending and users can follow
+it through the explorer link.
+
 ## Design
 
 The UI reuses BeatyXO/Vitmus's "Verification Noir" palette and type system
